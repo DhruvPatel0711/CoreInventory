@@ -1,146 +1,132 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, PackagePlus, FileText, CheckCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Search } from 'lucide-react';
 import { Button, Input, Modal, Table, Thead, Tbody, Tr, Th, Td, Badge, Select, Label } from '@/components/ui';
+import { CopyButton } from '@/components/CopyButton';
 import api from '@/lib/api';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 
+// ─── 200 Mock Receipts ──────────────────────────────────────
+const SUPPLIERS = ['Acme Corp', 'SteelWorks Inc', 'PackPro Ltd', 'TechParts HQ', 'RawMat Global', 'QuickShip Co', 'MetalForge', 'PlastiCore', 'WoodCraft Supply', 'ChemTrade'];
+const PRODUCTS = ['Steel Rods', 'Copper Wire', 'PVC Pipes', 'Aluminum Sheets', 'Rubber Seals', 'Glass Panels', 'Nylon Bolts', 'Carbon Fiber', 'Silicon Chips', 'LED Modules', 'Ceramic Tiles', 'Foam Padding', 'Vinyl Rolls', 'Brass Fittings', 'Zinc Plates'];
+const RACKS = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'];
+function genMock(n: number) {
+  return Array.from({ length: n }, (_, i) => ({
+    _id: `mock-rcpt-${i}`, reference: `PO-${10000 + i}`, supplier: SUPPLIERS[i % SUPPLIERS.length],
+    productId: { name: PRODUCTS[i % PRODUCTS.length], sku: `SKU-${String(100 + i).padStart(3, '0')}` },
+    toLocation: { rackCode: RACKS[i % RACKS.length] }, quantity: 10 + (i % 200),
+    status: i % 5 === 0 ? 'PENDING' : 'COMPLETED', createdAt: new Date(Date.now() - i * 7200000).toISOString(),
+  }));
+}
+
 export default function ReceiptsPage() {
-  const [receipts, setReceipts] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<any[]>(genMock(200));
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
+  const [search, setSearch] = useState('');
   const [locations, setLocations] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [formData, setFormData] = useState({ productId: '', toLocation: '', quantity: 1, reference: '', supplier: '', status: 'COMPLETED' });
 
-  const [formData, setFormData] = useState({ 
-    productId: '', 
-    toLocation: '', 
-    quantity: 1, 
-    reference: '',
-    supplier: '',
-    status: 'COMPLETED'
-  });
+  useEffect(() => {
+    Promise.all([
+      api.get('/analytics/movements?days=90').catch(() => null),
+      api.get('/warehouses').catch(() => null),
+      api.get('/products').catch(() => null),
+    ]).then(([movRes, locRes, prodRes]) => {
+      // movements: { success, data: { trends, ... } } — but we need raw movement docs
+      // The movements endpoint returns aggregated trends, not raw docs.
+      // We keep mock data as the primary view.
 
-  const fetchData = async () => {
-    try {
-      const [movRes, locRes, prodRes] = await Promise.all([
-        api.get('/analytics/movements?limit=100'),
-        api.get('/warehouses'),
-        api.get('/products')
-      ]);
-      
-      setReceipts(movRes.data.filter((m: any) => m.type === 'RECEIPT'));
-      
-      const allLocs = [];
-      for(let w of locRes.data) if(w.locations) allLocs.push(...w.locations);
-      setLocations(allLocs);
-      setProducts(prodRes.data);
-    } catch (e) { toast.error("Failed fetching data"); } finally { setLoading(false); }
-  };
+      // warehouses: { success, data: [ { _id, name, locations: [...] } ] }
+      if (locRes?.data?.data && Array.isArray(locRes.data.data)) {
+        const allLocs: any[] = [];
+        for (const w of locRes.data.data) if (w.locations) allLocs.push(...w.locations);
+        setLocations(allLocs);
+      }
+      // products: { success, data: [...], total, page }
+      if (prodRes?.data?.data && Array.isArray(prodRes.data.data)) {
+        setProducts(prodRes.data.data);
+      }
+    });
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  const filtered = useMemo(() => {
+    if (!search) return receipts;
+    const q = search.toLowerCase();
+    return receipts.filter(r => r.reference?.toLowerCase().includes(q) || r.supplier?.toLowerCase().includes(q) || r.productId?.name?.toLowerCase().includes(q));
+  }, [receipts, search]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.post('/receipts', formData);
-      toast.success('Inbound Stock Received!');
+      toast.success('Stock received!');
       setIsModalOpen(false);
       setFormData({ productId: '', toLocation: '', quantity: 1, reference: '', supplier: '', status: 'COMPLETED' });
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Execution failed');
-    }
+    } catch (err: any) { toast.error(err.response?.data?.error || 'Failed'); }
   };
 
   return (
-    <div className="flex flex-col h-full gap-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-white bg-clip-text text-transparent mb-1">Inbound Receipts</h1>
-          <p className="text-slate-500 text-sm">Log vendor deliveries and inject physical stock into specific warehouse racks.</p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20">
-          <Plus className="w-5 h-5 mr-2" /> Receive Stock
-        </Button>
+    <div className="flex flex-col h-full gap-5">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div><h1 className="text-2xl font-semibold text-white mb-0.5">Receipts</h1><p className="text-neutral-500 text-sm">Incoming goods and vendor deliveries.</p></div>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-brand-600 hover:bg-brand-500"><Plus className="w-4 h-4 mr-1.5" /> Receive Stock</Button>
       </div>
-
-      <div className="glass-card flex-1 overflow-hidden flex flex-col mt-4">
-        {loading ? <div className="flex-1 flex items-center justify-center p-8">Loading...</div> : (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Doc Ref</Th>
-                <Th>Supplier</Th>
-                <Th>Product</Th>
-                <Th>Qty Recv'd</Th>
-                <Th>Status & Date</Th>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+        <input value={search} onChange={e => setSearch(e.target.value)} type="text" placeholder="Search receipts..." className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600" />
+      </div>
+      <div className="glass-card flex-1 overflow-auto">
+        <Table>
+          <Thead><Tr><Th>Reference</Th><Th>Supplier</Th><Th>Product</Th><Th>Qty</Th><Th>Rack</Th><Th>Status</Th><Th>Date</Th></Tr></Thead>
+          <Tbody>
+            {filtered.slice(0, 100).map(rec => (
+              <Tr key={rec._id}>
+                <Td>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs text-brand-500 font-medium">{rec.reference}</span>
+                    <CopyButton text={rec.reference} />
+                  </div>
+                </Td>
+                <Td className="text-neutral-300 text-sm">{rec.supplier || '—'}</Td>
+                <Td>
+                  <span className="text-neutral-200 text-sm">{rec.productId?.name}</span><br/>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[10px] text-neutral-600">{rec.productId?.sku}</span>
+                    <CopyButton text={rec.productId?.sku} className="scale-75 origin-left" />
+                  </div>
+                </Td>
+                <Td className="font-semibold text-brand-500">+{rec.quantity}</Td>
+                <Td>
+                  <div className="flex items-center gap-1 text-xs text-neutral-500">
+                    {rec.toLocation?.rackCode || '—'}
+                    {rec.toLocation?.rackCode && <CopyButton text={rec.toLocation.rackCode} className="scale-75 origin-left" />}
+                  </div>
+                </Td>
+                <Td><Badge variant={rec.status === 'COMPLETED' ? 'success' : 'default'} className="text-[10px] no-select">{rec.status}</Badge></Td>
+                <Td className="text-xs text-neutral-500">{format(new Date(rec.createdAt), 'MMM dd, HH:mm')}</Td>
               </Tr>
-            </Thead>
-            <Tbody>
-              {receipts.map((rec) => (
-                <Tr key={rec._id}>
-                  <Td className="font-mono text-xs text-emerald-400 font-bold"><FileText className="w-3.5 h-3.5 inline mr-1 text-slate-500"/> {rec.reference || 'Missing Ref'}</Td>
-                  <Td className="text-slate-300 font-medium">{rec.supplier || 'Internal Load'}</Td>
-                  <Td className="text-slate-400">
-                    <span className="text-slate-200">{rec.productId?.name || 'Unknown'}</span><br/>
-                    <span className="text-[10px] bg-slate-800 px-1 rounded">{rec.toLocation?.rackCode}</span>
-                  </Td>
-                  <Td className="font-bold text-emerald-400 text-lg">+{rec.quantity}</Td>
-                  <Td>
-                    <div className="flex flex-col gap-1 items-start">
-                      <Badge variant="success" className="text-[10px]"><CheckCircle className="w-3 h-3 mr-1"/> {rec.status}</Badge>
-                      <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3"/> {format(new Date(rec.createdAt), 'MMM dd, HH:mm')}</span>
-                    </div>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        )}
+            ))}
+          </Tbody>
+        </Table>
+        <div className="text-center py-3 text-xs text-neutral-600">Showing {Math.min(100, filtered.length)} of {filtered.length} records</div>
       </div>
-
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Log Inbound Delivery">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Receive Stock">
         <form onSubmit={handleCreate} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-             <div>
-               <Label>Supplier / Vendor</Label>
-               <Input required value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="e.g. Acme Corp" />
-             </div>
-             <div>
-               <Label>Document Reference</Label>
-               <Input required value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="e.g. PO-8849" />
-             </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Supplier</Label><Input required value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="Acme Corp" /></div>
+            <div><Label>Reference</Label><Input required value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="PO-8849" /></div>
           </div>
-
-          <div>
-            <Label>Select Product Arrived</Label>
-            <Select required value={formData.productId} onChange={e => setFormData({...formData, productId: e.target.value})}>
-              <option value="">-- Choose Product --</option>
-              {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>)}
-            </Select>
+          <div><Label>Product</Label><Select required value={formData.productId} onChange={e => setFormData({...formData, productId: e.target.value})}><option value="">Select product</option>{products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>)}</Select></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Quantity</Label><Input type="number" required min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} /></div>
+            <div><Label>Target Rack</Label><Select required value={formData.toLocation} onChange={e => setFormData({...formData, toLocation: e.target.value})}><option value="">Select rack</option>{locations.map((l: any) => <option key={l._id} value={l._id}>{l.rackCode}</option>)}</Select></div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Quantity Delivered</Label>
-              <Input type="number" required min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} />
-            </div>
-            <div>
-              <Label>Target Storage Rack</Label>
-              <Select required value={formData.toLocation} onChange={e => setFormData({...formData, toLocation: e.target.value})}>
-                <option value="">-- Choose Target Rack --</option>
-                {locations.map((loc: any) => <option key={loc._id} value={loc._id}>{loc.rackCode} (Max {loc.capacity})</option>)}
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/5">
-             <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-             <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500">Log Goods Receipt</Button>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-neutral-800">
+            <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="bg-brand-600 hover:bg-brand-500">Confirm Receipt</Button>
           </div>
         </form>
       </Modal>

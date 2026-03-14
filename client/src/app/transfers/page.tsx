@@ -1,134 +1,133 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ArrowRightLeft, MapPin, Plus } from 'lucide-react';
-import { Button, Input, Modal, Table, Thead, Tbody, Tr, Th, Td, Label, Select } from '@/components/ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, ArrowRightLeft } from 'lucide-react';
+import { Button, Input, Modal, Table, Thead, Tbody, Tr, Th, Td, Select, Label } from '@/components/ui';
+import { CopyButton } from '@/components/CopyButton';
 import api from '@/lib/api';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 
+const PRODUCTS = ['Steel Rods', 'Copper Wire', 'PVC Pipes', 'Aluminum Sheets', 'Rubber Seals', 'Glass Panels', 'Nylon Bolts', 'Carbon Fiber', 'Silicon Chips', 'LED Modules', 'Ceramic Tiles', 'Foam Padding'];
+const RACKS = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3'];
+function genMock(n: number) {
+  return Array.from({ length: n }, (_, i) => ({
+    _id: `mock-tr-${i}`,
+    productId: { name: PRODUCTS[i % PRODUCTS.length], sku: `SKU-${String(400 + i).padStart(3, '0')}` },
+    fromLocation: { rackCode: RACKS[i % RACKS.length] }, toLocation: { rackCode: RACKS[(i + 3) % RACKS.length] },
+    quantity: 5 + (i % 50), createdAt: new Date(Date.now() - i * 18000000).toISOString(),
+  }));
+}
+
 export default function TransfersPage() {
-  const [transfers, setTransfers] = useState<any[]>([]);
+  const [transfers, setTransfers] = useState<any[]>(genMock(200));
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
+  const [search, setSearch] = useState('');
   const [locations, setLocations] = useState<any[]>([]);
   const [inventorySnapshot, setInventorySnapshot] = useState<any[]>([]);
+  const [formData, setFormData] = useState({ productId: '', fromLocation: '', toLocation: '', quantity: 1 });
 
-  const [formData, setFormData] = useState({ 
-    productId: '', 
-    fromLocation: '', 
-    toLocation: '',
-    quantity: 1, 
-    reference: ''
-  });
+  useEffect(() => {
+    Promise.all([
+      api.get('/warehouses').catch(() => null),
+      api.get('/inventory').catch(() => null),
+    ]).then(([locRes, invRes]) => {
+      if (locRes?.data?.data && Array.isArray(locRes.data.data)) {
+        const a: any[] = [];
+        for (const w of locRes.data.data) if (w.locations) a.push(...w.locations);
+        setLocations(a);
+      }
+      if (invRes?.data?.data && Array.isArray(invRes.data.data)) setInventorySnapshot(invRes.data.data);
+    });
+  }, []);
 
-  const fetchData = async () => {
-    try {
-      const [movRes, locRes, invRes] = await Promise.all([
-        api.get('/analytics/movements?limit=100'),
-        api.get('/warehouses'),
-        api.get('/inventory')
-      ]);
-      setTransfers(movRes.data.filter((m: any) => m.type === 'TRANSFER'));
-      const allLocs = [];
-      for(let w of locRes.data) if(w.locations) allLocs.push(...w.locations);
-      setLocations(allLocs);
-      setInventorySnapshot(invRes.data);
-    } catch (e) { toast.error("Failed fetching"); } finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchData(); }, []);
+  const filtered = useMemo(() => {
+    if (!search) return transfers;
+    const q = search.toLowerCase();
+    return transfers.filter(t => t.productId?.name?.toLowerCase().includes(q) || t.fromLocation?.rackCode?.toLowerCase().includes(q) || t.toLocation?.rackCode?.toLowerCase().includes(q));
+  }, [transfers, search]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.fromLocation === formData.toLocation) return toast.error('Source and Target cannot be the same');
     try {
       await api.post('/transfers', formData);
-      toast.success('Transfer complete');
+      toast.success('Transfer executed!');
       setIsModalOpen(false);
-      setFormData({ productId: '', fromLocation: '', toLocation: '', quantity: 1, reference: '' });
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failure');
-    }
+      setFormData({ productId: '', fromLocation: '', toLocation: '', quantity: 1 });
+    } catch (err: any) { toast.error(err.response?.data?.error || 'Failed'); }
   };
 
   return (
-    <div className="flex flex-col h-full gap-6">
-      <div className="flex justify-between md:items-end">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-white bg-clip-text text-transparent mb-1"><ArrowRightLeft className="inline w-6 h-6 mr-2 text-purple-400"/> Transfers</h1>
-          <p className="text-slate-400 text-sm">Shift quantities across distribution nodes with zero net-balance loss.</p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} className="bg-purple-600 hover:bg-purple-500 shadow-purple-500/20">
-          <Plus className="w-5 h-5 mr-2" /> New Route
-        </Button>
+    <div className="flex flex-col h-full gap-5">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div><h1 className="text-2xl font-semibold text-white mb-0.5">Transfers</h1><p className="text-neutral-500 text-sm">Move inventory between warehouse locations.</p></div>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 hover:bg-indigo-500"><Plus className="w-4 h-4 mr-1.5" /> New Transfer</Button>
       </div>
-
-      <div className="glass-card flex-1 overflow-hidden flex flex-col mt-4">
-        {loading ? <div className="p-8 text-center text-slate-500">Loading routes...</div> : (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Doc Ref</Th>
-                <Th>Payload</Th>
-                <Th>Flight Path</Th>
-                <Th>Date</Th>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+        <input value={search} onChange={e => setSearch(e.target.value)} type="text" placeholder="Search transfers..." className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 py-1.5 text-sm text-neutral-200 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600" />
+      </div>
+      <div className="glass-card flex-1 overflow-auto">
+        <Table>
+          <Thead><Tr><Th>Product</Th><Th>From</Th><Th>To</Th><Th>Qty</Th><Th>Date</Th></Tr></Thead>
+          <Tbody>
+            {filtered.slice(0, 100).map(tr => (
+              <Tr key={tr._id}>
+                <Td>
+                  <span className="text-neutral-200 text-sm">{tr.productId?.name}</span><br/>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[10px] text-neutral-600">{tr.productId?.sku}</span>
+                    <CopyButton text={tr.productId?.sku} className="scale-75 origin-left" />
+                  </div>
+                </Td>
+                <Td>
+                  <div className="flex items-center gap-1 text-xs text-neutral-400">
+                    {tr.fromLocation?.rackCode || '—'}
+                    {tr.fromLocation?.rackCode && <CopyButton text={tr.fromLocation.rackCode} className="scale-75 origin-left" />}
+                  </div>
+                </Td>
+                <Td>
+                  <div className="flex items-center gap-1 text-xs text-neutral-400">
+                    {tr.toLocation?.rackCode || '—'}
+                    {tr.toLocation?.rackCode && <CopyButton text={tr.toLocation.rackCode} className="scale-75 origin-left" />}
+                  </div>
+                </Td>
+                <Td className="font-semibold text-indigo-400">{tr.quantity}</Td>
+                <Td className="text-xs text-neutral-500">{format(new Date(tr.createdAt), 'MMM dd, HH:mm')}</Td>
               </Tr>
-            </Thead>
-            <Tbody>
-              {transfers.map((tr) => (
-                <Tr key={tr._id}>
-                  <Td className="font-mono text-purple-300 font-bold text-xs">{tr.reference || 'SYSTEM'}</Td>
-                  <Td className="text-slate-300 font-bold">{tr.quantity}x <span className="text-brand-300">{tr.productId?.name}</span></Td>
-                  <Td>
-                    <div className="flex items-center gap-2 text-slate-300 bg-slate-800/50 px-3 py-1.5 rounded-md border border-white/5 inline-flex text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-slate-500"/> {tr.fromLocation?.rackCode}
-                      <ArrowRightLeft className="w-3.5 h-3.5 text-purple-400 mx-1"/>
-                      <MapPin className="w-3.5 h-3.5 text-slate-500"/> {tr.toLocation?.rackCode}
-                    </div>
-                  </Td>
-                  <Td className="text-slate-500 text-xs">{format(new Date(tr.createdAt), 'MM/dd HH:mm')}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        )}
-      </div>
-
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Execute Internal Transfer">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Label>Source Inventory Instance</Label>
-          <Select required value={`${formData.productId}|${formData.fromLocation}`} onChange={e => {
-            const [pid, fid] = e.target.value.split('|');
-            setFormData({...formData, productId: pid, fromLocation: fid});
-          }}>
-            <option value="|">-- Select Product holding in rack --</option>
-            {inventorySnapshot.filter(inv => inv.quantity > 0).map(inv => (
-               <option key={inv._id} value={`${inv.productId._id}|${inv.locationId._id}`}>
-                 {inv.productId.sku} - {inv.productId.name} @ {inv.locationId?.rackCode} ({inv.quantity} available)
-               </option>
             ))}
-          </Select>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Quantity to Relocate</Label>
-               <Input type="number" required min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} />
+          </Tbody>
+        </Table>
+        <div className="text-center py-3 text-xs text-neutral-600">Showing {Math.min(100, filtered.length)} of {filtered.length} records</div>
+      </div>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Transfer Stock">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div><Label>Product</Label>
+            <Select required value={formData.productId} onChange={e => setFormData({...formData, productId: e.target.value, fromLocation: ''})}>
+              <option value="">Select product</option>
+              {[...new Map(inventorySnapshot.filter(i => i.quantity > 0).map(i => [i.productId?._id, i])).values()].map(inv => (
+                <option key={inv.productId?._id} value={inv.productId?._id}>{inv.productId?.name} ({inv.productId?.sku})</option>
+              ))}
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>From</Label>
+              <Select required value={formData.fromLocation} onChange={e => setFormData({...formData, fromLocation: e.target.value})} disabled={!formData.productId}>
+                <option value="">Source</option>
+                {inventorySnapshot.filter(i => i.productId?._id === formData.productId && i.quantity > 0).map(inv => <option key={inv.locationId?._id} value={inv.locationId?._id}>{inv.locationId?.rackCode} ({inv.quantity})</option>)}
+              </Select>
             </div>
-            <div>
-              <Label>Target Rack</Label>
+            <div><Label>To</Label>
               <Select required value={formData.toLocation} onChange={e => setFormData({...formData, toLocation: e.target.value})}>
-                <option value="">-- Choose Destination --</option>
-                {locations.filter((loc:any) => loc._id !== formData.fromLocation).map((loc: any) => <option key={loc._id} value={loc._id}>{loc.rackCode}</option>)}
+                <option value="">Destination</option>
+                {locations.filter(l => l._id !== formData.fromLocation).map(l => <option key={l._id} value={l._id}>{l.rackCode}</option>)}
               </Select>
             </div>
           </div>
-
-          <div className="flex justify-end gap-3 mt-8 pt-4">
-             <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-             <Button type="submit" className="bg-purple-600 hover:bg-purple-500">Sign Off Relocation</Button>
+          <div><Label>Quantity</Label><Input type="number" required min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} /></div>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-neutral-800">
+            <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit" className="bg-indigo-600 hover:bg-indigo-500">Execute</Button>
           </div>
         </form>
       </Modal>

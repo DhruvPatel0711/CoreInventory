@@ -120,7 +120,7 @@ export const Tr = ({ className, children, ...props }: React.HTMLAttributes<HTMLT
   <tr className={twMerge("hover:bg-white/[0.02] transition-colors", className)} {...props}>{children}</tr>
 );
 export const Th = ({ className, children, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
-  <th className={twMerge("px-6 py-4 font-medium", className)} {...props}>{children}</th>
+  <th className={twMerge("px-6 py-4 font-medium no-select", className)} {...props}>{children}</th>
 );
 export const Td = ({ className, children, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
   <td className={twMerge("px-6 py-4", className)} {...props}>{children}</td>

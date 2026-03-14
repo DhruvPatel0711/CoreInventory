@@ -5,6 +5,7 @@ import { Search, Plus, Filter, Edit, Trash2, PackageSearch, Loader2 } from 'luci
 import { motion } from 'framer-motion';
 import { Button, Input, Modal, Table, Thead, Tbody, Tr, Th, Td, Badge, Select, Label } from '@/components/ui';
 import { CategoryManager } from '@/components/CategoryManager';
+import { CopyButton } from '@/components/CopyButton';
 import api from '@/lib/api';
 import { toast } from 'react-toastify';
 
@@ -28,7 +29,9 @@ export default function ProductsPage() {
     setLoading(true);
     try {
       const { data } = await api.get('/products');
-      setProducts(data);
+      // API returns { success, data: [...], total, page, pages }
+      const list = Array.isArray(data?.data) ? data.data : [];
+      setProducts(list);
     } catch (err: any) {
       toast.error('Failed to load products');
     } finally {
@@ -74,8 +77,10 @@ export default function ProductsPage() {
     setIsModalOpen(true);
   };
 
-  // Smart Filtering Logic
-  const filteredProducts = products.filter(p => {
+  // Smart Filtering Logic (defensive against non-array shapes)
+  const safeProducts = Array.isArray(products) ? products : [];
+
+  const filteredProducts = safeProducts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
     const matchesCat = catFilter ? p.category === catFilter : true;
     
@@ -109,7 +114,7 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto">
           <Select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="w-32 sm:w-auto">
             <option value="">All Categories</option>
-            {[...new Set(products.map(p => p.category))].map(c => <option key={c} value={c}>{c}</option>)}
+            {[...new Set(safeProducts.map(p => p.category))].map(c => <option key={c} value={c}>{c}</option>)}
           </Select>
           <Select value={stockFilter} onChange={e => setStockFilter(e.target.value)} className="w-32 sm:w-auto">
             <option value="">All Stock</option>
@@ -138,7 +143,10 @@ export default function ProductsPage() {
                   <Td>
                     <div className="flex flex-col">
                       <span className="font-medium text-slate-800 dark:text-slate-200">{prod.name}</span>
-                      <span className="text-xs text-brand-500 dark:text-brand-400">{prod.sku}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-brand-500 dark:text-brand-400 font-mono">{prod.sku}</span>
+                        <CopyButton text={prod.sku} />
+                      </div>
                     </div>
                   </Td>
                   <Td>

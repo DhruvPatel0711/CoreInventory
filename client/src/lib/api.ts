@@ -31,11 +31,23 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 Unauthorized globally if needed
+    // Only redirect to /login on 401 for auth-verification endpoints (e.g. /auth/me).
+    // Background data-fetch calls (analytics, products, inventory, etc.) already
+    // handle 401 gracefully with .catch(), so we must NOT redirect for those
+    // or else the dashboard will bounce to login immediately.
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      const isAuthVerify = url.includes('/auth/me');
+      const isAlreadyOnAuth =
+        window.location.pathname.startsWith('/login') ||
+        window.location.pathname.startsWith('/register') ||
+        window.location.pathname.startsWith('/forgot-password');
+
+      if (isAuthVerify && !isAlreadyOnAuth) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

@@ -19,77 +19,47 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', formData);
-      // API shape: { success, message, data: { user, token } }
       const token = data?.data?.token;
       const user = data?.data?.user;
-
-      if (!token) {
-        throw new Error('Missing token in response');
-      }
-
+      if (!token) throw new Error('Missing token');
       localStorage.setItem('token', token);
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-
-      toast.success(`Control deck unlocked`, {
-        autoClose: 2400,
-      });
+      if (user) localStorage.setItem('user', JSON.stringify(user));
+      toast.success('Logged in successfully');
       router.push('/dashboard');
     } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
-        err.message ||
-        'Login failed';
-      toast.error(msg, {
-        autoClose: 3200,
-      });
-    } finally {
-      setLoading(false);
-    }
+      toast.error(err.response?.data?.message || err.message || 'Login failed');
+    } finally { setLoading(false); }
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-      <div className="glass-card p-8 border border-white/10 dark:border-white/5 shadow-2xl relative overflow-hidden bg-white/60 dark:bg-surface-dark/90 backdrop-blur-xl rounded-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl -z-10 -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl -z-10 -ml-20 -mb-20"></div>
-
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
+      <div className="glass-card p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold bg-gradient-to-r from-brand-600 to-indigo-600 dark:from-brand-400 dark:to-indigo-400 bg-clip-text text-transparent">CoreInventory</h1>
-          <p className="text-slate-500 mt-2 text-sm">Sign in to manage your warehouse operations</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <Label htmlFor="email">Email Address</Label>
-            <Input 
-              id="email" type="email" icon={<Mail className="w-4 h-4" />} required
-              placeholder="you@company.com"
-              value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
-            />
+          <div className="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-sm">CI</span>
           </div>
-
+          <h1 className="text-xl font-semibold text-white">Welcome back</h1>
+          <p className="text-neutral-500 mt-1 text-sm">Sign in to your account</p>
+        </div>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" icon={<Mail className="w-4 h-4" />} required placeholder="you@company.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+          </div>
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <Label className="mb-0" htmlFor="password">Password</Label>
-              <Link href="/forgot-password" className="text-xs text-brand-600 dark:text-brand-400 font-medium hover:underline">Forgot password?</Link>
+              <Link href="/forgot-password" className="text-xs text-brand-500 hover:text-brand-400">Forgot?</Link>
             </div>
-            <Input 
-              id="password" type="password" icon={<Lock className="w-4 h-4" />} required
-              placeholder="••••••••"
-              value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
-            />
+            <Input id="password" type="password" icon={<Lock className="w-4 h-4" />} required placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
           </div>
-
-          <Button type="submit" className="w-full mt-6" disabled={loading}>
+          <Button type="submit" className="w-full mt-4 bg-brand-600 hover:bg-brand-500" disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Sign In {loading ? '' : <ArrowRight className="w-4 h-4 ml-2" />}
+            Sign In {!loading && <ArrowRight className="w-4 h-4 ml-1" />}
           </Button>
         </form>
-
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8">
-          Don't have an account? <Link href="/register" className="text-brand-600 dark:text-brand-400 font-medium hover:underline">Request access</Link>
+        <p className="text-center text-xs text-neutral-500 mt-6">
+          No account? <Link href="/register" className="text-brand-500 hover:text-brand-400 font-medium">Sign up</Link>
         </p>
       </div>
     </motion.div>

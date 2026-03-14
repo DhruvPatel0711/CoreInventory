@@ -1,43 +1,44 @@
 @import "tailwindcss";
 
 @theme {
-  /* Neon cyber logistics palette */
-  --color-brand-50: #ecfeff;
-  --color-brand-100: #cffafe;
-  --color-brand-200: #a5f3fc;
-  --color-brand-300: #67e8f9;
-  --color-brand-400: #22d3ee;
-  --color-brand-500: #06b6d4; /* primary neon cyan */
-  --color-brand-600: #0891b2;
-  --color-brand-700: #0e7490;
-  --color-brand-800: #155e75;
-  --color-brand-900: #164e63;
+  /* ─── Professional Clean Palette ─── */
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-200: #bbf7d0;
+  --color-brand-300: #86efac;
+  --color-brand-400: #4ade80;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
 
-  /* Base surfaces */
-  --color-background-dark: #020617; /* near-black slate */
-  --color-surface-dark: #020617;
-  --color-surface-hover: #02081e;
-  --color-border-dark: #0f172a;
+  --color-background-dark: #111111;
+  --color-surface-dark: #171717;
+  --color-surface-hover: #1e1e1e;
+  --color-border-dark: #262626;
+  --color-panel: #1a1a1a;
 }
 
 @layer base {
   body {
-    @apply bg-background-dark text-slate-200 tracking-wide selection:bg-brand-500/30 font-sans antialiased;
+    @apply bg-background-dark text-neutral-200 tracking-normal font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-surface-dark/80 backdrop-blur-2xl border border-cyan-500/10 shadow-[0_0_40px_rgba(8,145,178,0.35)];
+    @apply bg-surface-dark border border-neutral-800 shadow-sm;
   }
   .glass-card {
-    @apply bg-gradient-to-br from-slate-900/70 via-slate-950/80 to-slate-900/40 backdrop-blur-2xl border border-cyan-500/10 shadow-[0_0_45px_rgba(6,182,212,0.35)] rounded-2xl;
+    @apply bg-surface-dark border border-neutral-800 rounded-xl shadow-sm;
   }
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+  .no-select { user-select: none; -webkit-user-select: none; }
 }

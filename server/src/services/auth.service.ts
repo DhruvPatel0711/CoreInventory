@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import User, { IUser } from '../models/User';
 import { ApiError } from '../utils/ApiError';
+import { sendOtpEmail } from './email.service';
 
 // ─── Token Payload ───────────────────────────────────────────
 interface TokenPayload {
@@ -115,8 +116,12 @@ export const requestOtp = async (email: string) => {
   user.resetPasswordOtpExpiry = expiry;
   await user.save();
 
-  // For Hackathon MVP: Mock sending email by logging to server console
-  console.log(`\n\n[MOCK EMAIL] Password Reset OTP for ${user.email}: ${otp}\n\n`);
+  // Send OTP via email (falls back to console if env vars not set)
+  try {
+    await sendOtpEmail(user.email, otp);
+  } catch (emailErr) {
+    console.log(`[EMAIL FAILED] OTP for ${user.email}: ${otp}`);
+  }
 
   // In non-production, also surface the OTP in the response for easier testing
   const payload: { message: string; debugOtp?: string } = {
