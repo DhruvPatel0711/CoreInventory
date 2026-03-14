@@ -53,3 +53,28 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
     data: user,
   });
 });
+
+// ─── POST /api/auth/request-otp ──────────────────────────────
+export const requestOtp = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) throw new ApiError(400, 'Email is required');
+
+  const result = await authService.requestOtp(email);
+  res.json({ success: true, ...result });
+});
+
+// ─── POST /api/auth/reset-password ───────────────────────────
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { email, otp, newPassword } = req.body;
+  
+  if (!email || !otp || !newPassword) {
+    throw new ApiError(400, 'Email, OTP, and new password are required');
+  }
+
+  if (newPassword.length < 6) {
+    throw new ApiError(400, 'New password must be at least 6 characters');
+  }
+
+  const result = await authService.resetPassword({ email, otp, newPassword });
+  res.json({ success: true, ...result });
+});

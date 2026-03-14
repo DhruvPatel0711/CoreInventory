@@ -12,7 +12,9 @@ export interface IInventoryMovement extends Document {
   fromLocation: Types.ObjectId | null;
   toLocation: Types.ObjectId | null;
   reference?: string;
+  supplier?: string;
   notes?: string;
+  status: 'DRAFT' | 'COMPLETED' | 'CANCELED';
   performedBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -55,6 +57,16 @@ const inventoryMovementSchema = new Schema<IInventoryMovement>(
       trim: true,
       maxlength: [100, 'Reference cannot exceed 100 characters'],
       // e.g., PO number, invoice number, transfer ticket ID
+    },
+    supplier: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Supplier cannot exceed 100 characters'],
+    },
+    status: {
+      type: String,
+      enum: ['DRAFT', 'COMPLETED', 'CANCELED'],
+      default: 'COMPLETED', // default to completed to support legacy operations
     },
     notes: {
       type: String,

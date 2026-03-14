@@ -9,6 +9,8 @@ export interface IUser extends Document {
   role: 'admin' | 'manager' | 'staff';
   createdAt: Date;
   updatedAt: Date;
+  resetPasswordOtp?: string;
+  resetPasswordOtpExpiry?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -43,6 +45,12 @@ const userSchema = new Schema<IUser>(
         message: 'Role must be admin, manager, or staff',
       },
       default: 'staff',
+    },
+    resetPasswordOtp: {
+      type: String,
+    },
+    resetPasswordOtpExpiry: {
+      type: Date,
     },
   },
   {

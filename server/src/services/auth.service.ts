@@ -96,3 +96,57 @@ export const getProfile = async (userId: string) => {
 
   return sanitizeUser(user);
 };
+
+// ─── Request Password Reset OTP ──────────────────────────────
+export const requestOtp = async (email: string) => {
+  const user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    throw new ApiError(404, 'No account found with this email');
+  }
+
+  // Generate a random 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Set expiry to 10 minutes from now
+  const expiry = new Date();
+  expiry.setMinutes(expiry.getMinutes() + 10);
+
+  user.resetPasswordOtp = otp;
+  user.resetPasswordOtpExpiry = expiry;
+  await user.save();
+
+  // For Hackathon MVP: Mock sending email by logging to console
+  console.log(`\n\n[MOCK EMAIL] Password Reset OTP for ${user.email}: ${otp}\n\n`);
+
+  return { message: 'OTP sent successfully (check console)' };
+};
+
+// ─── Verify OTP & Reset Password ─────────────────────────────
+export const resetPassword = async (data: { email: string; otp: string; newPassword: string }) => {
+  const user = await User.findOne({ email: data.email.toLowerCase() });
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  if (!user.resetPasswordOtp || !user.resetPasswordOtpExpiry) {
+    throw new ApiError(400, 'No active OTP request found');
+  }
+
+  if (new Date() > user.resetPasswordOtpExpiry) {
+    throw new ApiError(400, 'OTP has expired. Please request a new one.');
+  }
+
+  if (user.resetPasswordOtp !== data.otp) {
+    throw new ApiError(400, 'Invalid OTP');
+  }
+
+  // Update password (pre-save hook will hash it)
+  user.password = data.newPassword;
+  
+  // Clear OTP fields
+  user.resetPasswordOtp = undefined;
+  user.resetPasswordOtpExpiry = undefined;
+  await user.save();
+
+  return { message: 'Password reset successfully' };
+};
