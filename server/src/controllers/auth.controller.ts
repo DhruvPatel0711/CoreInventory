@@ -1,0 +1,55 @@
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
+import { ApiError } from '../utils/ApiError';
+import * as authService from '../services/auth.service';
+
+// ─── POST /api/auth/register ─────────────────────────────────
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const { name, email, password, role } = req.body;
+
+  // Basic input validation
+  if (!name || !email || !password) {
+    throw new ApiError(400, 'Name, email, and password are required');
+  }
+
+  if (password.length < 6) {
+    throw new ApiError(400, 'Password must be at least 6 characters');
+  }
+
+  const result = await authService.register({ name, email, password, role });
+
+  res.status(201).json({
+    success: true,
+    message: 'Registration successful',
+    data: result,
+  });
+});
+
+// ─── POST /api/auth/login ────────────────────────────────────
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    throw new ApiError(400, 'Email and password are required');
+  }
+
+  const result = await authService.login({ email, password });
+
+  res.json({
+    success: true,
+    message: 'Login successful',
+    data: result,
+  });
+});
+
+// ─── GET /api/auth/me ────────────────────────────────────────
+// Protected: requires authenticate middleware
+export const getMe = asyncHandler(async (req: Request, res: Response) => {
+  const userId = String(req.user?._id);
+  const user = await authService.getProfile(userId);
+
+  res.json({
+    success: true,
+    data: user,
+  });
+});
