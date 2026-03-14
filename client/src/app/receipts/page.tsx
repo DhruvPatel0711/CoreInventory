@@ -1,144 +1,149 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, ArrowDownToLine, Calendar, FileText } from 'lucide-react';
-
-const MOCK_RECEIPTS = [
-  { id: '1', ref: 'PO-2026-001', supplier: 'Steel Dynamics Inc.', items: 3, totalQty: 1500, date: '2026-03-14', status: 'Completed' },
-  { id: '2', ref: 'PO-2026-002', supplier: 'TechParts Global', items: 12, totalQty: 450, date: '2026-03-13', status: 'Completed' },
-  { id: '3', ref: 'DRAFT-992', supplier: 'Office Supplies Co.', items: 5, totalQty: 120, date: '2026-03-14', status: 'Draft' },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, PackagePlus, FileText, CheckCircle, Clock } from 'lucide-react';
+import { Button, Input, Modal, Table, Thead, Tbody, Tr, Th, Td, Badge, Select, Label } from '@/components/ui';
+import api from '@/lib/api';
+import { toast } from 'react-toastify';
+import { format } from 'date-fns';
 
 export default function ReceiptsPage() {
+  const [receipts, setReceipts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  const [locations, setLocations] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+
+  const [formData, setFormData] = useState({ 
+    productId: '', 
+    toLocation: '', 
+    quantity: 1, 
+    reference: '',
+    supplier: '',
+    status: 'COMPLETED'
+  });
+
+  const fetchData = async () => {
+    try {
+      const [movRes, locRes, prodRes] = await Promise.all([
+        api.get('/analytics/movements?limit=100'),
+        api.get('/warehouses'),
+        api.get('/products')
+      ]);
+      
+      setReceipts(movRes.data.filter((m: any) => m.type === 'RECEIPT'));
+      
+      const allLocs = [];
+      for(let w of locRes.data) if(w.locations) allLocs.push(...w.locations);
+      setLocations(allLocs);
+      setProducts(prodRes.data);
+    } catch (e) { toast.error("Failed fetching data"); } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/receipts', formData);
+      toast.success('Inbound Stock Received!');
+      setIsModalOpen(false);
+      setFormData({ productId: '', toLocation: '', quantity: 1, reference: '', supplier: '', status: 'COMPLETED' });
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Execution failed');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full gap-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-white bg-clip-text text-transparent mb-1 flex items-center gap-2">
-            <ArrowDownToLine className="text-emerald-400" /> Incoming Receipts
-          </h1>
-          <p className="text-slate-400 text-sm">Log incoming goods from suppliers and auto-update stock bins.</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-white bg-clip-text text-transparent mb-1">Inbound Receipts</h1>
+          <p className="text-slate-500 text-sm">Log vendor deliveries and inject physical stock into specific warehouse racks.</p>
         </div>
-        
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Create Receipt
-        </button>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20">
+          <Plus className="w-5 h-5 mr-2" /> Receive Stock
+        </Button>
       </div>
 
-      {/* Stats/Filters */}
-      <div className="glass-card p-4 flex flex-col sm:flex-row gap-4 justify-between items-center bg-emerald-500/5">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500/50" />
-          <input
-            type="text"
-            placeholder="Search Reference or Supplier..."
-            className="w-full bg-slate-900/50 border border-emerald-500/20 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="glass-card flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="text-xs text-slate-400 uppercase bg-slate-900/40 border-b border-white/5">
-              <tr>
-                <th className="px-6 py-4 font-medium">Reference</th>
-                <th className="px-6 py-4 font-medium">Supplier</th>
-                <th className="px-6 py-4 font-medium">Items / Qty</th>
-                <th className="px-6 py-4 font-medium">Date received</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {MOCK_RECEIPTS.map((receipt, idx) => (
-                <motion.tr 
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
-                  key={receipt.id} className="hover:bg-white/[0.02] transition-colors"
-                >
-                  <td className="px-6 py-4 font-medium text-slate-200">{receipt.ref}</td>
-                  <td className="px-6 py-4 text-slate-300">{receipt.supplier}</td>
-                  <td className="px-6 py-4">
-                    <span className="text-emerald-400 font-medium">{receipt.totalQty} total</span>
-                    <span className="text-xs text-slate-500 ml-2">({receipt.items} SKUs)</span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-400 flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5" /> {receipt.date}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
-                      receipt.status === 'Completed' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-                    }`}>
-                      {receipt.status}
-                    </span>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-background-dark/80 backdrop-blur-sm"
-              onClick={() => setIsModalOpen(false)}
-            />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl glass-card p-6 border border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
-            >
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><ArrowDownToLine className="text-emerald-400"/> New Receipt</h2>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Supplier Name</label>
-                    <input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-emerald-500" placeholder="Vendor Inc" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Document Reference</label>
-                    <input type="text" className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white outline-none focus:border-emerald-500" placeholder="PO-XXXX" />
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-white/5">
-                  <h3 className="text-sm font-semibold text-slate-400 mb-3">Line Items</h3>
-                  <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-4 flex flex-col gap-3">
-                    <div className="flex gap-3">
-                      <select className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 outline-none focus:border-emerald-500">
-                        <option>Select Product SKU...</option>
-                      </select>
-                      <input type="number" placeholder="Qty" className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-500" />
+      <div className="glass-card flex-1 overflow-hidden flex flex-col mt-4">
+        {loading ? <div className="flex-1 flex items-center justify-center p-8">Loading...</div> : (
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Doc Ref</Th>
+                <Th>Supplier</Th>
+                <Th>Product</Th>
+                <Th>Qty Recv'd</Th>
+                <Th>Status & Date</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {receipts.map((rec) => (
+                <Tr key={rec._id}>
+                  <Td className="font-mono text-xs text-emerald-400 font-bold"><FileText className="w-3.5 h-3.5 inline mr-1 text-slate-500"/> {rec.reference || 'Missing Ref'}</Td>
+                  <Td className="text-slate-300 font-medium">{rec.supplier || 'Internal Load'}</Td>
+                  <Td className="text-slate-400">
+                    <span className="text-slate-200">{rec.productId?.name || 'Unknown'}</span><br/>
+                    <span className="text-[10px] bg-slate-800 px-1 rounded">{rec.toLocation?.rackCode}</span>
+                  </Td>
+                  <Td className="font-bold text-emerald-400 text-lg">+{rec.quantity}</Td>
+                  <Td>
+                    <div className="flex flex-col gap-1 items-start">
+                      <Badge variant="success" className="text-[10px]"><CheckCircle className="w-3 h-3 mr-1"/> {rec.status}</Badge>
+                      <span className="text-xs text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3"/> {format(new Date(rec.createdAt), 'MMM dd, HH:mm')}</span>
                     </div>
-                    <button className="text-emerald-400 text-sm font-medium self-start flex items-center gap-1 hover:text-emerald-300 transition-colors">
-                      <Plus className="w-4 h-4"/> Add another item
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/10">
-                  <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-300 hover:text-white transition-colors">Cancel</button>
-                  <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all font-medium border border-slate-700">Save as Draft</button>
-                  <button className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-500/20 transition-all font-medium">Verify & Receive</button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
         )}
-      </AnimatePresence>
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Log Inbound Delivery">
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+               <Label>Supplier / Vendor</Label>
+               <Input required value={formData.supplier} onChange={e => setFormData({...formData, supplier: e.target.value})} placeholder="e.g. Acme Corp" />
+             </div>
+             <div>
+               <Label>Document Reference</Label>
+               <Input required value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="e.g. PO-8849" />
+             </div>
+          </div>
+
+          <div>
+            <Label>Select Product Arrived</Label>
+            <Select required value={formData.productId} onChange={e => setFormData({...formData, productId: e.target.value})}>
+              <option value="">-- Choose Product --</option>
+              {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>)}
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Quantity Delivered</Label>
+              <Input type="number" required min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})} />
+            </div>
+            <div>
+              <Label>Target Storage Rack</Label>
+              <Select required value={formData.toLocation} onChange={e => setFormData({...formData, toLocation: e.target.value})}>
+                <option value="">-- Choose Target Rack --</option>
+                {locations.map((loc: any) => <option key={loc._id} value={loc._id}>{loc.rackCode} (Max {loc.capacity})</option>)}
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-white/5">
+             <Button variant="ghost" type="button" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+             <Button type="submit" className="bg-emerald-600 hover:bg-emerald-500">Log Goods Receipt</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

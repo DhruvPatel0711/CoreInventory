@@ -115,10 +115,19 @@ export const requestOtp = async (email: string) => {
   user.resetPasswordOtpExpiry = expiry;
   await user.save();
 
-  // For Hackathon MVP: Mock sending email by logging to console
+  // For Hackathon MVP: Mock sending email by logging to server console
   console.log(`\n\n[MOCK EMAIL] Password Reset OTP for ${user.email}: ${otp}\n\n`);
 
-  return { message: 'OTP sent successfully (check console)' };
+  // In non-production, also surface the OTP in the response for easier testing
+  const payload: { message: string; debugOtp?: string } = {
+    message: 'OTP sent successfully (server log)',
+  };
+
+  if (env.NODE_ENV !== 'production') {
+    payload.debugOtp = otp;
+  }
+
+  return payload;
 };
 
 // ─── Verify OTP & Reset Password ─────────────────────────────

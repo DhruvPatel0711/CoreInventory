@@ -10,15 +10,19 @@ export const metadata: Metadata = {
   description: "Centralized real-time inventory tracking dashboard.",
 };
 
+import { ThemeProvider } from '@/components/ThemeProvider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <LayoutWrapper>{children}</LayoutWrapper>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <LayoutWrapper>{children}</LayoutWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -16,7 +16,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'Password must be at least 6 characters');
   }
 
-  const result = await authService.register({ name, email, password, role });
+  const normalizedRole =
+    role === 'admin' || role === 'manager' || role === 'staff' ? role : undefined;
+
+  const result = await authService.register({
+    name,
+    email,
+    password,
+    role: normalizedRole,
+  });
 
   res.status(201).json({
     success: true,
