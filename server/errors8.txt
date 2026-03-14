@@ -1,0 +1,23 @@
+﻿src/controllers/inventory.controller.ts(90,49): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'string | string[]' is not assignable to parameter of type 'string | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+      Type 'string[]' is not assignable to type 'string | ObjectId | Uint8Array<ArrayBufferLike> | ObjectIdLike | undefined'.
+        Type 'string[]' is missing the following properties from type 'Uint8Array<ArrayBufferLike>': BYTES_PER_ELEMENT, buffer, byteLength, byteOffset, and 3 more.
+src/controllers/product.controller.ts(28,56): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/product.controller.ts(38,55): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/product.controller.ts(72,54): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/product.controller.ts(83,38): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/warehouse.controller.ts(17,61): error TS2345: Argument of type 'string | string[]' is not assignable to parameter of type 'string'.
+  Type 'string[]' is not assignable to type 'string'.
+src/models/Inventory.ts(53,12): error TS2790: The operand of a 'delete' operator must be optional.
+src/models/InventoryMovement.ts(130,12): error TS2790: The operand of a 'delete' operator must be optional.
+src/models/User.ts(59,44): error TS2349: This expression is not callable.
+  Type 'SaveOptions' has no call signatures.
+src/models/User.ts(62,3): error TS2349: This expression is not callable.
+  Type 'SaveOptions' has no call signatures.
+src/models/User.ts(75,12): error TS2790: The operand of a 'delete' operator must be optional.
+src/models/User.ts(76,12): error TS2790: The operand of a 'delete' operator must be optional.

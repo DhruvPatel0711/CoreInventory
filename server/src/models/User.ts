@@ -55,11 +55,10 @@ userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1 });
 
 // ─── Pre-save Hook: Hash password ───────────────────────────
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // ─── Instance Method: Compare password ──────────────────────
@@ -72,9 +71,8 @@ userSchema.methods.comparePassword = async function (
 // ─── Serialization: strip password from JSON ────────────────
 userSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.password;
-    delete ret.__v;
-    return ret;
+    const { password, __v, ...rest } = ret;
+    return rest;
   },
 });
 

@@ -127,8 +127,8 @@ inventoryMovementSchema.pre('validate', function () {
 // ─── Serialization ──────────────────────────────────────────
 inventoryMovementSchema.set('toJSON', {
   transform(_doc, ret) {
-    delete ret.__v;
-    return ret;
+    const { __v, ...rest } = ret;
+    return rest;
   },
 });
 
