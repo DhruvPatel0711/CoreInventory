@@ -6,6 +6,7 @@ import { User, Lock, Bell, Palette, LogOut, CheckCircle2, ShieldAlert } from 'lu
 import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Label, Card } from '@/components/ui';
+import api from '@/lib/api';
 import { toast } from 'react-toastify';
 
 export default function SettingsPage() {
@@ -13,14 +14,51 @@ export default function SettingsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
   
-  // Mock Profile Data
-  const [profile, setProfile] = useState({ name: 'System Admin', email: 'admin@coreinventory.com', role: 'inventory_manager' });
+  // Profile from localStorage
+  const [profile, setProfile] = useState({ name: 'System Admin', email: 'admin@coreinventory.com', role: 'staff' });
   const [passForm, setPassForm] = useState({ current: '', new: '', confirm: '' });
+  const [passLoading, setPassLoading] = useState(false);
+
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        setProfile({ name: u.name || 'User', email: u.email || '', role: u.role || 'staff' });
+      }
+    } catch {}
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     toast.info('Logged out successfully');
     router.push('/login');
+  };
+
+  const handleChangePassword = async () => {
+    if (!passForm.current || !passForm.new || !passForm.confirm) {
+      return toast.error('All fields are required');
+    }
+    if (passForm.new !== passForm.confirm) {
+      return toast.error('Passwords do not match');
+    }
+    if (passForm.new.length < 6) {
+      return toast.error('Password must be at least 6 characters');
+    }
+    setPassLoading(true);
+    try {
+      await api.put('/auth/change-password', {
+        currentPassword: passForm.current,
+        newPassword: passForm.new,
+      });
+      toast.success('Password changed successfully');
+      setPassForm({ current: '', new: '', confirm: '' });
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setPassLoading(false);
+    }
   };
 
   const tabs = [
@@ -110,7 +148,9 @@ export default function SettingsPage() {
                       <Input type="password" placeholder="••••••••" value={passForm.confirm} onChange={e => setPassForm({...passForm, confirm: e.target.value})}/>
                     </div>
                   </div>
-                  <Button variant="danger" className="mt-4" onClick={() => toast.success('Password changed securely.')}>Update Password</Button>
+                  <Button variant="danger" className="mt-4" onClick={handleChangePassword} disabled={passLoading}>
+                    {passLoading ? 'Updating...' : 'Update Password'}
+                  </Button>
                 </div>
               </Card>
             </motion.div>

@@ -86,3 +86,19 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
   const result = await authService.resetPassword({ email, otp, newPassword });
   res.json({ success: true, ...result });
 });
+
+// ─── PUT /api/auth/change-password ───────────────────────────
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const userId = String(req.user?._id);
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    throw new ApiError(400, 'Current and new password are required');
+  }
+  if (newPassword.length < 6) {
+    throw new ApiError(400, 'New password must be at least 6 characters');
+  }
+
+  const result = await authService.changePassword(userId, { currentPassword, newPassword });
+  res.json({ success: true, ...result });
+});

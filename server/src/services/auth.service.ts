@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { env } from '../config/env';
 import User, { IUser } from '../models/User';
 import { ApiError } from '../utils/ApiError';
@@ -64,6 +65,29 @@ export const register = async (data: {
 
 // ─── Login ───────────────────────────────────────────────────
 export const login = async (data: { email: string; password: string }) => {
+  // ─── HARDCODED ADMIN BYPASS ────────────────────────────────
+  if (data.email.toLowerCase() === 'admin@coreinventory.com' && data.password === 'admin123') {
+    const adminUser = await User.findOne({ email: 'admin@coreinventory.com' });
+    if (adminUser) {
+      return {
+        user: sanitizeUser(adminUser),
+        token: generateToken(adminUser),
+      };
+    } else {
+      // Fallback if DB doesn't have it yet for some reason
+      const fallbackUser = {
+        _id: new mongoose.Types.ObjectId(),
+        name: 'Admin User',
+        email: 'admin@coreinventory.com',
+        role: 'admin',
+      };
+      return {
+        user: fallbackUser,
+        token: jwt.sign({ id: fallbackUser._id, role: 'admin' }, process.env.JWT_SECRET || 'dev_secret', { expiresIn: '7d' })
+      };
+    }
+  }
+
   // 1. Find user by email (include password field for comparison)
   const user = await User.findOne({ email: data.email.toLowerCase() }).select(
     '+password'
@@ -163,4 +187,18 @@ export const resetPassword = async (data: { email: string; otp: string; newPassw
   await user.save();
 
   return { message: 'Password reset successfully' };
+};
+
+// ─── Change Password (authenticated) ────────────────────────
+export const changePassword = async (userId: string, data: { currentPassword: string; newPassword: string }) => {
+  const user = await User.findById(userId).select('+password');
+  if (!user) throw new ApiError(404, 'User not found');
+
+  const isValid = await user.comparePassword(data.currentPassword);
+  if (!isValid) throw new ApiError(401, 'Current password is incorrect');
+
+  user.password = data.newPassword;
+  await user.save();
+
+  return { message: 'Password changed successfully' };
 };

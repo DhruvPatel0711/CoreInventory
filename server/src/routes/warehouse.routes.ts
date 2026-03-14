@@ -10,4 +10,9 @@ router.get('/', authenticate, warehouseController.listWarehouses);
 // Warehouse visualization API
 router.get('/:id/locations', authenticate, warehouseController.getWarehouseLocations);
 
+// Edit/Create endpoints
+router.post('/', authenticate, warehouseController.createWarehouse);
+router.put('/:id', authenticate, warehouseController.updateWarehouse);
+router.post('/racks', authenticate, warehouseController.createRack);
+
 export default router;

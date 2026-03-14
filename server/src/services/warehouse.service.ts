@@ -60,3 +60,25 @@ export const getWarehouseLocations = async (warehouseId: string) => {
 export const listWarehouses = async (): Promise<IWarehouse[]> => {
   return Warehouse.find().sort({ name: 1 });
 };
+
+export const createWarehouse = async (data: { name: string; location: string }): Promise<IWarehouse> => {
+  const existing = await Warehouse.findOne({ name: data.name });
+  if (existing) throw new ApiError(400, 'Warehouse with this name already exists');
+  return Warehouse.create(data);
+};
+
+export const updateWarehouse = async (id: string, data: { name?: string; location?: string }): Promise<IWarehouse> => {
+  const warehouse = await Warehouse.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  if (!warehouse) throw new ApiError(404, 'Warehouse not found');
+  return warehouse;
+};
+
+export const createRack = async (data: { warehouseId: string; rackCode: string; capacity: number }) => {
+  const warehouse = await Warehouse.findById(data.warehouseId);
+  if (!warehouse) throw new ApiError(404, 'Warehouse not found');
+  
+  const existing = await Location.findOne({ warehouseId: data.warehouseId, rackCode: data.rackCode });
+  if (existing) throw new ApiError(400, `Rack ${data.rackCode} already exists in this warehouse`);
+  
+  return Location.create(data);
+};

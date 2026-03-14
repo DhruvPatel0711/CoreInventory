@@ -4,11 +4,12 @@ import { twMerge } from 'tailwind-merge';
 // ─── Shared Types ────────────────────────────────────────────
 
 // ─── Button ──────────────────────────────────────────────────
-export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost', size?: 'sm' | 'md' | 'lg' }>(({ className, variant = 'primary', size = 'md', children, ...props }, ref) => {
+export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline', size?: 'sm' | 'md' | 'lg' }>(({ className, variant = 'primary', size = 'md', children, ...props }, ref) => {
   const base = "inline-flex items-center justify-center rounded-lg font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:pointer-events-none";
   const variants = {
     primary: "bg-brand-600 text-white hover:bg-brand-500 shadow-lg shadow-brand-500/20 focus:ring-brand-500",
     secondary: "bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white focus:ring-slate-500",
+    outline: "bg-transparent text-slate-200 border border-slate-600 hover:bg-slate-800 hover:text-white focus:ring-slate-500",
     danger: "bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 focus:ring-red-500",
     ghost: "bg-transparent text-slate-400 hover:text-white hover:bg-white/5 focus:ring-slate-500"
   };
